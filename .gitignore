@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.csv
+*.xlsx
+*.json
+*.log
+.ipynb_checkpoints
+*.env
+untitled.ipynb
+*.ipynb
