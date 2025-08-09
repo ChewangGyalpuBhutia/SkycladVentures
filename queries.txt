@@ -1,0 +1,43 @@
+# --- Row Filtering ---
+"Show ships with draught greater than 3",
+"Find ships where displacement is less than 5000",
+"Show me rows where block coefficient is between 0.6 and 0.8",
+"Find the 5 ships with highest displacement",
+"Show me the 3 lowest draught values",
+"Show me only displacement and draught columns",
+"Select only numeric columns",
+"Show ships with draught greater than 100",
+"Show ships with speed greater than 50",
+"Find good ships",
+"displacement greater than 3000",
+
+# --- Statistics & Analysis ---
+"What are the statistics for displacement?",
+"Give me stats for all numeric columns",
+"Calculate mean and standard deviation for draught",
+"Find outliers in displacement",
+"Show values closest to 3.5 for draught",
+"displacement statistics",
+
+# --- Dataset Information ---
+"Get dataset information",
+"column information",
+
+# --- Explanations & Definitions ---
+"Explain what displacement means in ship design",
+"What is block coefficient and why is it important?",
+"How does draught affect ship performance?",
+"What is ship design?",
+
+# --- Analytical/Insight Questions ---
+"What factors make a ship design efficient?",
+"Analyze the relationship between displacement and draught",
+"Show me large ships",
+"Compare different ship designs",
+"What patterns do you see in this data?",
+"What can you tell me about this ship dataset?",
+"How do I interpret the block coefficient values?",
+"What makes one ship design better than another?",
+"Explain the trade-offs in ship design parameters",
+"Show me ships with high displacement and explain why they might be designed this way",
+"Find ships with low block coefficient and tell me what this means for performance",
