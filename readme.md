@@ -3,6 +3,7 @@
 This project provides an interactive platform for querying, analyzing, and visualizing your own datasets using natural language and AI-powered chat (RAG). It supports CSV, Excel, and JSON files.
 
 
+
 ## Features
 
 - **Upload Your Own Dataset:** No default data—upload your own file to get started.
@@ -11,6 +12,10 @@ This project provides an interactive platform for querying, analyzing, and visua
 - **Data Overview:** Get statistics, column info, and sample data.
 - **Download Results:** Export query results as CSV.
 - **Visualization:** Visualize your data interactively (via Streamlit).
+
+## FastAPI Backend
+
+A FastAPI backend is implemented in `src/main.py`, providing a REST API for data querying, AI chat (RAG), and dataset overview endpoints.
 
 ## Sample Data & Test Queries
 
