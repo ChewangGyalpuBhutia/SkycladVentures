@@ -184,6 +184,12 @@ class RowQueryEngine:
             return self.get_rows_by_condition(target_col, "<=", numbers[0])
         elif any(phrase in query for phrase in ["closest", "nearest"]):
             return self.get_closest_row(target_col, numbers[0])
+        elif any(phrase in query for phrase in ["lowest", "smallest", "bottom"]):
+            n = int(numbers[0]) if numbers else 5
+            return self.get_top_n_rows(target_col, n, ascending=True)
+        elif any(phrase in query for phrase in ["highest", "largest", "biggest", "top"]):
+            n = int(numbers[0]) if numbers else 5
+            return self.get_top_n_rows(target_col, n, ascending=False)
         else:
             # Default to exact match
             return self.get_exact_row(target_col, numbers[0])

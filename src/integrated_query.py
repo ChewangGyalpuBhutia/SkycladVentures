@@ -2,10 +2,21 @@ import pandas as pd
 import numpy as np
 from typing import List, Dict, Union, Optional
 import re
+import os
+from dotenv import load_dotenv
 from engines.row_queries import RowQueryEngine
 from engines.numeric_queries import NumericQueryEngine
 from engines.column_queries import ColumnFilterEngine
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Try to import RAG engine
+try:
+    from rag_engine import RAGEngine
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
 
 class TableProcessor:
     def __init__(self):
@@ -43,26 +54,55 @@ class IntegratedQueryEngine:
         else:
             raise ValueError("Either file_path or dataframe must be provided")
 
-        # Initialize all query engines
+        # Initialize traditional query engines
         self.row_engine = RowQueryEngine(self.df)
         self.numeric_engine = NumericQueryEngine(self.df)
         self.column_engine = ColumnFilterEngine(self.df)
+
+        # Initialize RAG engine if available
+        self.rag_engine = None
+        self.rag_enabled = False
+        
+        if RAG_AVAILABLE:
+            # Get API key from environment
+            gemini_api_key = os.getenv('GEMINI_API_KEY')
+            if gemini_api_key:
+                try:
+                    self.rag_engine = RAGEngine(self.df, gemini_api_key)
+                    self.rag_enabled = True
+                    print("✅ RAG engine initialized successfully")
+                except Exception as e:
+                    print(f"❌ RAG initialization failed: {e}")
+            else:
+                print("⚠️  GEMINI_API_KEY not found in environment variables")
 
         # Combined column mapping
         self.all_columns = list(self.df.columns)
         self.numeric_columns = list(self.df.select_dtypes(include=[np.number]).columns)
 
     def query(
-        self, user_query: str, query_type: str = "auto"
+        self, user_query: str, query_type: str = "auto", use_rag: bool = False
     ) -> Union[pd.DataFrame, Dict, float]:
         """
         Main query interface that routes to appropriate engine
 
         Args:
             user_query: Natural language query
-            query_type: 'auto', 'row', 'numeric', 'column', or 'stats'
+            query_type: 'auto', 'row', 'numeric', 'column', 'stats', 'info', 'rag'
+            use_rag: Force use of RAG if available
         """
         user_query = user_query.strip()
+
+        # Check if RAG should be used
+        if use_rag or query_type == "rag":
+            if self.rag_enabled:
+                return self._handle_rag_query(user_query)
+            else:
+                return {"error": "RAG not available. Check GEMINI_API_KEY in .env file."}
+
+        # Check if query seems conversational
+        if self._is_conversational_query(user_query) and self.rag_enabled:
+            return self._handle_rag_query(user_query)
 
         if query_type == "auto":
             query_type = self._detect_query_type(user_query)
@@ -81,11 +121,49 @@ class IntegratedQueryEngine:
             else:
                 return self._handle_general_query(user_query)
         except Exception as e:
+            # Fallback to RAG if traditional query fails and RAG is available
+            if self.rag_enabled:
+                return self._handle_rag_query(user_query)
             return pd.DataFrame()  # Return empty dataframe on error
+
+    def _is_conversational_query(self, query: str) -> bool:
+        """Detect if query is conversational/explanatory"""
+        conversational_words = [
+            'explain', 'what is', 'how does', 'why', 'what are', 'tell me',
+            'describe', 'what do you think', 'help me understand', 'can you',
+            'what would', 'how should', 'what if', 'compare', 'analyze'
+        ]
+        
+        query_lower = query.lower()
+        return any(phrase in query_lower for phrase in conversational_words)
+
+    def _handle_rag_query(self, query: str) -> Dict:
+        """Handle query using RAG"""
+        if not self.rag_enabled:
+            return {"error": "RAG not available"}
+        
+        rag_result = self.rag_engine.rag_query(query)
+        
+        # Try to also get data if query seems data-specific
+        data_result = None
+        if any(word in query.lower() for word in ['show', 'find', 'get', 'list']):
+            try:
+                data_result = self._handle_general_query(query)
+                if isinstance(data_result, pd.DataFrame) and not data_result.empty:
+                    rag_result["data"] = data_result.to_dict('records')
+                    rag_result["data_rows"] = len(data_result)
+            except:
+                pass
+        
+        return rag_result
 
     def _detect_query_type(self, query: str) -> str:
         """Automatically detect the type of query"""
         query_lower = query.lower()
+
+        # Check for conversational queries first
+        if self._is_conversational_query(query):
+            return "rag"
 
         # Stats queries
         if any(
@@ -210,6 +288,7 @@ class IntegratedQueryEngine:
             "column_info": self.column_engine.get_column_info(),
             "summary_stats": self.numeric_engine.calculate_numeric_statistics(),
             "sample_data": self.df.head().to_dict(),
+            "rag_enabled": self.rag_enabled
         }
 
     def suggest_queries(self) -> List[str]:
@@ -224,54 +303,26 @@ class IntegratedQueryEngine:
             f"Find outliers in {self.numeric_columns[0]}",
         ]
 
-        return suggestions[:5]  # Return first 5 suggestions
+        # Add RAG examples if available
+        if self.rag_enabled:
+            suggestions.extend([
+                "Explain what displacement means in ship design",
+                "What factors affect ship efficiency?",
+                "How are these ship parameters related?"
+            ])
+
+        return suggestions[:7]  # Return first 7 suggestions
+
+    def chat_with_data(self, query: str) -> str:
+        """Direct chat interface using RAG"""
+        if not self.rag_enabled:
+            return "RAG functionality not available. Please check GEMINI_API_KEY in .env file."
+        
+        result = self.rag_engine.rag_query(query)
+        return result["response"]
 
 
 # Convenience function for quick querying
 def create_query_engine(file_path: str) -> IntegratedQueryEngine:
     """Create query engine from file"""
     return IntegratedQueryEngine(file_path=file_path)
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Initialize the query engine
-    engine = IntegratedQueryEngine(file_path="dataset/dataset.csv")
-
-    # Example queries
-    example_queries = [
-        "Show me rows where draught is greater than 3",
-        "Find the 5 highest displacement values",
-        "What are the statistics for draught?",
-        "Show me only numeric columns",
-        "Get dataset information",
-        "Find rows between 2 and 4 for draught",
-        "Show closest values to 3.5 for draught",
-    ]
-
-    print("Dataset Overview:")
-    print("=" * 50)
-    overview = engine.get_data_overview()
-    print(f"Shape: {overview['shape']}")
-    print(f"Columns: {len(overview['columns'])}")
-    print(f"Numeric Columns: {len(overview['numeric_columns'])}")
-
-    print("\nExample Queries:")
-    print("=" * 50)
-    for query in example_queries:
-        print(f"\nQuery: {query}")
-        print("-" * 30)
-        result = engine.query(query)
-
-        if isinstance(result, pd.DataFrame):
-            if not result.empty:
-                print(f"Found {len(result)} rows")
-                print(result.head())
-            else:
-                print("No results found")
-        elif isinstance(result, dict):
-            print("Statistics/Info:")
-            for key, value in list(result.items())[:3]:  # Show first 3 items
-                print(f"{key}: {value}")
-        else:
-            print(f"Result: {result}")
